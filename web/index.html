@@ -13,6 +13,12 @@
     <p class="subhead">Find the small loops that steal your momentum.</p>
     <section class="cards" id="cards"></section>
     <section class="insight"><p class="eyebrow">TODAY'S SIGNAL</p><p id="message">Loading your local data…</p></section>
+    <section class="checkin">
+      <p class="eyebrow">TEACH FRITLAS YOUR CONTEXT</p>
+      <form id="checkin-form"><input id="intention" maxlength="240" placeholder="What are you trying to do right now?"><select id="energy"><option value="1">Energy: 1 / 5</option><option value="2">Energy: 2 / 5</option><option value="3" selected>Energy: 3 / 5</option><option value="4">Energy: 4 / 5</option><option value="5">Energy: 5 / 5</option></select><button>Save check-in</button></form>
+      <p id="checkin-status"></p>
+    </section>
+    <section><h2>AI feedback log</h2><div id="feedback" class="feedback"></div></section>
     <section><h2>Repeated transitions</h2><div id="transitions" class="transitions"></div></section>
     <section><h2>Recent activity</h2><div id="activity" class="activity"></div></section>
   </main>

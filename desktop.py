@@ -18,7 +18,9 @@ class FritlasApp(tk.Tk):
         storage.initialize()
         self.tracker = ActivityTracker(interval=1.0)
         self.tracker.start()
-        self.server = serve()
+        self.server = self._start_dashboard()
+        host, port = self.server.server_address[:2]
+        self.dashboard_url = f"http://{host}:{port}"
         threading.Thread(target=self.server.serve_forever, daemon=True, name="fritlas-dashboard").start()
 
         self.title("Fritlas")
@@ -28,6 +30,17 @@ class FritlasApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.close)
         self._build()
         self.refresh()
+
+    @staticmethod
+    def _start_dashboard():
+        # A previous development run may still own 8765. Fall back rather than opening a dead URL.
+        last_error = None
+        for port in (8765, 8766, 8767):
+            try:
+                return serve(port)
+            except OSError as error:
+                last_error = error
+        raise RuntimeError("Fritlas could not start its local dashboard.") from last_error
 
     def _build(self) -> None:
         style = ttk.Style(self)
@@ -48,11 +61,12 @@ class FritlasApp(tk.Tk):
         self.status.pack(anchor="w")
         self.current = ttk.Label(card, text="Waiting for activity", style="App.TLabel")
         self.current.pack(anchor="w", pady=(6, 0))
+        ttk.Label(frame, text=f"Dashboard: {self.dashboard_url}", style="Copy.TLabel").pack(anchor="w", pady=(14, 0))
         buttons = ttk.Frame(frame, style="Main.TFrame")
         buttons.pack(fill="x", pady=(22, 0))
         self.pause_button = ttk.Button(buttons, text="Pause tracking", command=self.toggle_pause)
         self.pause_button.pack(side="left")
-        ttk.Button(buttons, text="Open dashboard", command=lambda: webbrowser.open("http://127.0.0.1:8765")).pack(side="right")
+        ttk.Button(buttons, text="Open dashboard", command=lambda: webbrowser.open(self.dashboard_url)).pack(side="right")
 
     def toggle_pause(self) -> None:
         paused = self.tracker.toggle_pause()

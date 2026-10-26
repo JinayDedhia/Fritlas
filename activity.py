@@ -7,12 +7,18 @@ from ctypes import wintypes
 from datetime import datetime, timezone
 from pathlib import Path
 import threading
+import time
 
+import ai_engine
 import storage
 
 
 class LASTINPUTINFO(ctypes.Structure):
     _fields_ = [("cbSize", wintypes.UINT), ("dwTime", wintypes.DWORD)]
+
+
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
 
 def idle_seconds() -> int:
@@ -44,6 +50,12 @@ def foreground_window() -> tuple[str, str]:
     return app_name, title.value or "Untitled window"
 
 
+def cursor_position() -> tuple[int, int]:
+    point = POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
+    return point.x, point.y
+
+
 def category_for(app_name: str) -> str:
     name = app_name.lower()
     if name in {"code.exe", "devenv.exe", "pycharm64.exe", "notepad.exe"}:
@@ -66,6 +78,12 @@ class ActivityTracker:
         self.current_app = "Waiting for activity"
         self._last: tuple[str, str, bool] | None = None
         self._stop = threading.Event()
+        self._sample_started = time.monotonic()
+        self._sample_distance = 0.0
+        self._sample_switches = 0
+        self._previous_cursor: tuple[int, int] | None = None
+        self._last_category = "other"
+        self._last_idle = 0
 
     def start(self) -> None:
         self.running = True
@@ -88,7 +106,13 @@ class ActivityTracker:
                 is_idle = idle >= self.idle_threshold
                 self.current_app = "Idle" if is_idle else app_name
                 current = (app_name, title, is_idle)
+                cursor = cursor_position()
+                if self._previous_cursor and not is_idle:
+                    self._sample_distance += ((cursor[0] - self._previous_cursor[0]) ** 2 + (cursor[1] - self._previous_cursor[1]) ** 2) ** 0.5
+                self._previous_cursor = cursor
                 if current != self._last:
+                    if self._last is not None:
+                        self._sample_switches += 1
                     storage.add_event(
                         datetime.now(timezone.utc).isoformat(),
                         "Idle" if is_idle else app_name,
@@ -97,4 +121,16 @@ class ActivityTracker:
                         idle_seconds=idle,
                     )
                     self._last = current
+                self._last_category = "idle" if is_idle else category_for(app_name)
+                self._last_idle = idle
+                elapsed = time.monotonic() - self._sample_started
+                if elapsed >= 30:
+                    storage.add_behavior_sample(
+                        datetime.now(timezone.utc).isoformat(), self.current_app, self._last_category,
+                        self._sample_distance, self._sample_switches, self._last_idle, elapsed,
+                    )
+                    ai_engine.generate_and_store_feedback()
+                    self._sample_started = time.monotonic()
+                    self._sample_distance = 0.0
+                    self._sample_switches = 0
             self._stop.wait(self.interval)
