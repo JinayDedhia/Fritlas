@@ -15,8 +15,10 @@ LEGACY_DATABASE_PATH = DATA_ROOT / "friction_atlas.db"
 @contextmanager
 def connection():
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = sqlite3.connect(DATABASE_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=15000")
     try:
         yield conn
         conn.commit()

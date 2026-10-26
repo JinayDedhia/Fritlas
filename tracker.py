@@ -5,14 +5,19 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import logging
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import analysis
 from activity import ActivityTracker
 from paths import RESOURCE_ROOT
+from paths import DATA_ROOT
 import storage
 
 STATIC = RESOURCE_ROOT / "web"
+LOG_PATH = DATA_ROOT / "fritlas.log"
+DATA_ROOT.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(filename=LOG_PATH, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -20,6 +25,7 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(STATIC), **kwargs)
 
     def do_GET(self):
+        logging.info("Dashboard request: %s", self.path)
         if self.path == "/api/summary":
             events = [dict(row) for row in storage.recent_events(limit=None)]
             payload = json.dumps({
@@ -57,6 +63,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(payload)
         except (ValueError, json.JSONDecodeError):
             self.send_error(400, "Enter an intention and energy level.")
+
+    def log_message(self, message, *args):
+        logging.info(message, *args)
 
 
 class LocalDashboardServer(ThreadingHTTPServer):

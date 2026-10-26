@@ -21,11 +21,13 @@ class FritlasApp(tk.Tk):
         self.server = self._start_dashboard()
         host, port = self.server.server_address[:2]
         self.dashboard_url = f"http://{host}:{port}"
-        threading.Thread(target=self.server.serve_forever, daemon=True, name="fritlas-dashboard").start()
+        self.server_thread = threading.Thread(target=self.server.serve_forever, name="fritlas-dashboard")
+        self.server_thread.start()
 
         self.title("Fritlas")
-        self.geometry("440x305")
-        self.resizable(False, False)
+        self.geometry("600x460")
+        self.minsize(540, 420)
+        self.resizable(True, True)
         self.configure(bg="#111311")
         self.protocol("WM_DELETE_WINDOW", self.close)
         self._build()
@@ -51,7 +53,7 @@ class FritlasApp(tk.Tk):
         style.configure("Status.TLabel", background="#1a1e1a", foreground="#9abe82", font=("Segoe UI", 11, "bold"))
         style.configure("App.TLabel", background="#1a1e1a", foreground="#f2f5ef", font=("Segoe UI", 14))
         style.configure("TButton", padding=(14, 8), font=("Segoe UI", 10, "bold"))
-        frame = ttk.Frame(self, style="Main.TFrame", padding=28)
+        frame = ttk.Frame(self, style="Main.TFrame", padding=30)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Fritlas", style="Title.TLabel").pack(anchor="w")
         ttk.Label(frame, text="Your private momentum map", style="Copy.TLabel").pack(anchor="w", pady=(0, 22))
@@ -63,7 +65,7 @@ class FritlasApp(tk.Tk):
         self.current.pack(anchor="w", pady=(6, 0))
         ttk.Label(frame, text=f"Dashboard: {self.dashboard_url}", style="Copy.TLabel").pack(anchor="w", pady=(14, 0))
         buttons = ttk.Frame(frame, style="Main.TFrame")
-        buttons.pack(fill="x", pady=(22, 0))
+        buttons.pack(fill="x", pady=(30, 0))
         self.pause_button = ttk.Button(buttons, text="Pause tracking", command=self.toggle_pause)
         self.pause_button.pack(side="left")
         ttk.Button(buttons, text="Open dashboard", command=lambda: webbrowser.open(self.dashboard_url)).pack(side="right")
@@ -84,6 +86,7 @@ class FritlasApp(tk.Tk):
     def close(self) -> None:
         self.tracker.stop()
         self.server.shutdown()
+        self.server.server_close()
         self.destroy()
 
 
